@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
 
+#
+# Handle args
+#
+
+USAGE="Usage: $0 root_ca.crt-file root_ca.key-file output_file_root"
+
+if [ "$#" -lt "3" ];
+then
+  echo "$USAGE"
+  exit 1
+fi
+
+CA_CERT=$1
+CA_KEY=$2
+OUTPUT_FILE_ROOT=$3
+
+#
+# Establish our environment
+#
+
 if [ -z "$COMMON_NAME" ];
 then
 	COMMON_NAME=$HOSTNAME
@@ -17,21 +37,13 @@ fi
 
 if [ -z "$SAN" ];
 then
-	SAN="DNS:localhost,DNS:*.local,DNS:$HOSTNAME,DNS:*.dc,DNS:rabbitmq"
+	SAN="DNS:localhost,DNS:*.local,DNS:$HOSTNAME,DNS:*.dc"
 fi
 
-USAGE="Usage: $0 root_ca.crt-file root_ca.key-file output_file_root"
 
-if [ "$#" -lt "3" ];
-then
-  echo "$USAGE"
-  exit 1
-fi
-
-CA_CERT=$1
-CA_KEY=$2
-OUTPUT_FILE_ROOT=$3
-
+#
+# Configure our cert details and the stuff needed for generation
+#
 GEN_WORKDIR=./wip
 if [ -d $GEN_WORKDIR ] ; then
 	rm -rf $GEN_WORKDIR
@@ -119,13 +131,24 @@ basicConstraints = CA:true
 keyUsage         = keyCertSign, cRLSign
 "
 
+
+#
+# Define our output files
+#
+
 KEY_FILE="$OUTPUT_FILE_ROOT"_key.pem
 CERT_FILE="$OUTPUT_FILE_ROOT"_certificate.pem
 CSR_FILE="$OUTPUT_FILE_ROOT".csr
 
+#
+# Generate our keo
+#
 echo "Generating new key"
 openssl genrsa -out $KEY_FILE 2048
 
+#
+# Generate our cert
+#
 echo "Generating Cert"
 openssl req -new \
     -config <(echo "$CONFIG") \
@@ -137,6 +160,9 @@ openssl req -new \
     -subj "$SUBJECT" \
     -nodes
 
+#
+# And sign it
+#
 echo "Signing Cert"
 openssl ca \
     -config <(echo "$CONFIG") \
@@ -149,11 +175,3 @@ openssl ca \
 	-notext \
 	-batch \
 	-extensions server_extensions
-
-# openssl req -new -config cert.conf -subj "CN=mytestdomain.com" -keyout mydomain.com.key -out mydomain.com.csr
-
-#openssl req -in $OUTPUT_FILE_ROOT.csr -noout -text
-
-# openssl x509 -req -in $OUTPUT_FILE_ROOT.csr -CA $CA_CERT -CAkey $CA_KEY -CAcreateserial -outform PEM -out $OUTPUT_FILE_ROOT.pem -days 3650 -sha256
-
-#openssl x509 -in mydomain.com.crt -text -noout
